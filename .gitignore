@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+*.py[cod]
+.Python
+venv/
+env/
+
+# Project specific
+.env
+*.log
+data/
+output/
