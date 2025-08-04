@@ -1,6 +1,6 @@
 # Financial Markets Regime Classifier
 
-Python-based system that fetches market data and classifies trading days into predefined regimes (R0-R10) based on technical indicators.
+Python-based system that fetches market data and classifies trading days into predefined regimes (R0-R10 + R5.5) based on technical indicators.
 
 ## Project Status
 
@@ -11,21 +11,21 @@ Python-based system that fetches market data and classifies trading days into pr
 
 ## Overview
 
-This project implements a regime classification system for financial markets using free, publicly available data sources. The system calculates 73 technical indicators from 5 years of historical data and will classify each trading day into one of 11 predefined regimes.
+This project implements a regime classification system for financial markets using free, publicly available data sources. The system calculates 97 technical indicators from 5 years of historical data and will classify each trading day into one of 12 predefined regimes.
 
 ## Data Sources
 
-All data fetched from free public sources:
+All data fetched from free public sources with robust fallback mechanisms:
 
-| Ticker | Source | Notes |
-|--------|--------|-------|
-| VIX | Yahoo Finance (^VIX) | Volatility index |
-| SPY | Yahoo Finance (SPY) | S&P 500 ETF |
-| SKEW | Yahoo Finance (^SKEW) | CBOE Skew Index |
-| VIX9D | Yahoo Finance (^VIX9D) | 9-day VIX |
-| VIX1M | Calculated proxy | 20-day MA of VIX x 1.01 |
+| Ticker | Primary Source | Fallback Sources | Notes |
+|--------|----------------|------------------|-------|
+| VIX | Yahoo Finance (^VIX) | - | Volatility index |
+| SPY | Yahoo Finance (SPY) | - | S&P 500 ETF (OHLCV data) |
+| SKEW | Yahoo Finance (^SKEW) | CBOE API | CBOE Skew Index |
+| VIX9D | Yahoo Finance (^VIX9D) | CBOE API | 9-day VIX |
+| VIX1M | Yahoo Finance (^VIX1M) | VIXY/VXX ETFs → 22-day MA proxy | 30-day VIX |
 
-Note: VIX1M proxy calculation is industry-standard when direct data unavailable.
+Note: VIX1M proxy uses 22-day moving average (typical trading month) when direct data unavailable.
 
 ## Installation
 
@@ -51,14 +51,14 @@ cp .env.example .env
 
 ### Quick Test
 ```bash
-# Test data fetching
+# Test data fetching (30-day test)
 python tests/test_data_fetch.py
 
-# Calculate indicators with 5 years of data
+# Calculate indicators with 1 year of data
 python tests/test_indicators.py
 
-# Verify 5-year data requirement
-python tests/verify_5years.py
+# Full 5-year indicator calculation
+python tests/test_indicators_5years.py
 ```
 
 ### Python API
@@ -68,7 +68,7 @@ from src.indicators import TechnicalIndicators
 
 # Fetch data
 fetcher = DataFetcher()
-data = fetcher.fetch_all_tickers()  # Default: 5 years
+data = fetcher.fetch_all_tickers()  # Default: 2 years
 
 # Calculate indicators
 calculator = TechnicalIndicators()
@@ -80,16 +80,15 @@ indicators_df = calculator.calculate_all_indicators(data)
 NDL_RegimeClassifier/
 ├── cache/                  # Cached market data
 ├── output/                 # Generated files
-│   └── indicators_5years.csv
+│   └── indicators.csv      # Latest indicator output
 ├── src/                    # Source modules
 │   ├── __init__.py
-│   ├── data_fetcher.py    # Data fetching with fallbacks
-│   └── indicators.py      # Technical indicators
+│   ├── data_fetcher.py    # Multi-source data fetching
+│   └── indicators.py      # Technical indicators (97 total)
 ├── tests/                  # Test scripts
 │   ├── __init__.py
 │   ├── test_data_fetch.py
-│   ├── test_indicators.py
-│   └── verify_5years.py
+│   └── test_indicators.py
 ├── config.py              # Configuration
 ├── requirements.txt       # Dependencies
 └── README.md             # This file
@@ -99,65 +98,70 @@ NDL_RegimeClassifier/
 
 ### Data Fetching
 - Multi-source fetching with automatic fallbacks
-- Yahoo Finance primary, CBOE backup
-- VIX1M proxy calculation when needed
+- Yahoo Finance → CBOE → ETF proxies → MA calculation
+- VIX1M intelligent proxy (ETFs preferred over simple MA)
 - Efficient caching system (24-hour refresh)
 - Handles missing data gracefully
 
-### Technical Indicators (73 total)
-- **Price/Trend**: EMAs (5,20,50,200), slopes, relationships
-- **Momentum**: RSI(14), MACD(12,26,9), ADX(14)
-- **Volatility**: ATR(14), Bollinger Bands, historical volatility
-- **Volume**: Ratios, moving averages
-- **Market Structure**: VIX term structure, SKEW levels
-- **Pattern Detection**: Failed breakouts, divergences
+### Technical Indicators (97 total)
+- **Price/Trend**: EMAs (5,20,50,200), slopes, relationships, ATH tracking
+- **Momentum**: RSI(14) with cross detection, MACD (daily + weekly)
+- **Volatility**: ATR(14), Bollinger Bands, 5-day/20-day volatility
+- **Volume**: Ratios, red candle analysis, uptick detection
+- **Market Structure**: VIX term structure (VIX/VIX9D/VIX1M)
+- **Pattern Detection**: Failed breakouts, RSI divergence
+- **Weekly Analysis**: Weekly MACD, EMA200, regime-specific conditions
+- **Advanced**: Distance from ATH, consecutive day counters
 
 ### Data Coverage
-- 5 years of historical data (per client requirement)
-- Approximately 1,255 trading days
-- Less than 1% missing values
-- All indicators needed for R0-R10 regime classification
+- Configurable timeframe (default 2 years, tested with 5 years)
+- Less than 1% missing values with forward-fill
+- All indicators needed for R0-R10 + R5.5 regime classification
 
 ## Regime Classifications
 
 | Regime | Description | Key Conditions |
 |--------|-------------|----------------|
 | R0 | Neutral/Unclassified | Default state |
-| R1 | Low Volatility Trend | EMA50>EMA200, VIX<15, ATR<1.5% |
-| R2 | Moderate Uptrend | EMA50>EMA200, Rising ATR |
-| R3 | Range-Bound Low Vol | ATR<1.5%, RSI 40-60 |
-| R4 | Choppy Market | Flat EMA50, ATR>2% |
-| R5 | Pullback in Uptrend | EMA5<EMA20, RSI divergence |
-| R5.5 | High SKEW Warning | SKEW>150, VIX term structure |
-| R6 | High Volatility | ATR>3% or VIX>30 |
-| R7 | Oversold Bounce | 5% rise from 5-day low |
-| R8 | Bear Market | EMA50<EMA200 |
+| R1 | Low Volatility Trend | EMA50>EMA200 ≥10d, VIX<15, ATR<1.5% |
+| R2 | Moderate Uptrend | EMA50>EMA200, ATR rising, RSI 55-70 |
+| R3 | Range-Bound Low Vol | ATR<1.5%, RSI 40-60, BB width<4% |
+| R4 | Choppy Market | Flat EMA50, ATR>2%, MACD whipsaws |
+| R5 | Pullback in Uptrend | EMA5<EMA20 ≥5d, RSI divergence |
+| R5.5 | High SKEW Warning | SKEW>150, VIX>25, SPY within 2% ATH |
+| R6 | High Volatility | ATR>3% or VIX>30, large drawdowns |
+| R7 | Oversold Bounce | 5% rise from 5-day low, RSI recovery |
+| R8 | Bear Market | Weekly<EMA200, MACD negative 10d |
 | R9 | Overbought | 14-day return>15%, RSI>80 |
 | R10 | Steady Uptrend | Above EMAs, low volume |
 
-Priority: R6 > R9 > R5.5 > R8 > R10 > R5 > R2 > R1 > R7 > R3 > R4 > R0
+Priority: R6 > R9 > R5.5 > R8 > R10 > R5 > R2 > R1 > R7 > R3 > R4
 
 ## Output
 
-**indicators_5years.csv** contains:
+**output/indicators.csv** contains:
 - Date index
-- 73 technical indicators
-- 1,255 rows (5 years of trading days)
-- All data required for regime classification
+- 97 technical indicators including:
+  - SPY price data and derived metrics
+  - Volatility indicators (VIX family, ATR, StDev)
+  - Technical indicators (RSI, MACD, EMAs, BBands)
+  - Volume analysis (including red candle metrics)
+  - Weekly timeframe indicators
+  - Regime-specific helper indicators
 
 ## Performance
 
-- Fetches 5 years of data in seconds
-- Calculates 73 indicators efficiently
-- Caches data to minimize API calls
-- Handles errors gracefully with fallbacks
+- Fetches 5 years of data in ~10 seconds
+- Calculates 97 indicators efficiently with pandas
+- Smart caching minimizes API calls
+- Automatic fallbacks ensure data availability
 
 ## Next Steps
 
 1. Implement regime classification logic (Milestone 4)
-2. Apply rules in priority order
+2. Apply rules with priority hierarchy
 3. Generate daily regime labels
-4. Add debug mode for verification
+4. Add backtesting framework
 
 ## Requirements
 
@@ -172,10 +176,11 @@ See requirements.txt for complete list.
 
 ## Notes
 
-- No API subscription required - uses free data sources
-- VIX1M proxy is reliable for regime classification
-- Cache refreshes daily automatically
-- All indicators match standard financial formulas
+- No paid API subscription required
+- VIX1M uses best available data (direct > ETF > MA proxy)
+- Cache automatically refreshes after 24 hours
+- Weekly indicators properly aligned to daily frequency
+- All indicators follow standard financial formulas
 
 ---
 
