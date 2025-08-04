@@ -11,7 +11,7 @@ Python-based system that fetches market data and classifies trading days into pr
 
 ## Overview
 
-This project implements a regime classification system for financial markets using free, publicly available data sources. The system calculates 97 technical indicators from 5 years of historical data and will classify each trading day into one of 12 predefined regimes.
+This project implements a regime classification system for financial markets using free, publicly available data sources. The system calculates 96 technical indicators from 5 years of historical data and will classify each trading day into one of 12 predefined regimes.
 
 ## Data Sources
 
@@ -84,7 +84,7 @@ NDL_RegimeClassifier/
 ├── src/                    # Source modules
 │   ├── __init__.py
 │   ├── data_fetcher.py    # Multi-source data fetching
-│   └── indicators.py      # Technical indicators (97 total)
+│   └── indicators.py      # Technical indicators (96 total)
 ├── tests/                  # Test scripts
 │   ├── __init__.py
 │   ├── test_data_fetch.py
@@ -103,7 +103,7 @@ NDL_RegimeClassifier/
 - Efficient caching system (24-hour refresh)
 - Handles missing data gracefully
 
-### Technical Indicators (97 total)
+### Technical Indicators (96 total)
 - **Price/Trend**: EMAs (5,20,50,200), slopes, relationships, ATH tracking
 - **Momentum**: RSI(14) with cross detection, MACD (daily + weekly)
 - **Volatility**: ATR(14), Bollinger Bands, 5-day/20-day volatility
@@ -139,9 +139,9 @@ Priority: R6 > R9 > R5.5 > R8 > R10 > R5 > R2 > R1 > R7 > R3 > R4
 
 ## Output
 
-**output/indicators.csv** contains:
+**indicators.csv** contains:
 - Date index
-- 97 technical indicators including:
+- 96 technical indicators including:
   - SPY price data and derived metrics
   - Volatility indicators (VIX family, ATR, StDev)
   - Technical indicators (RSI, MACD, EMAs, BBands)
@@ -152,7 +152,7 @@ Priority: R6 > R9 > R5.5 > R8 > R10 > R5 > R2 > R1 > R7 > R3 > R4
 ## Performance
 
 - Fetches 5 years of data in ~10 seconds
-- Calculates 97 indicators efficiently with pandas
+- Calculates 96 indicators efficiently with pandas
 - Smart caching minimizes API calls
 - Automatic fallbacks ensure data availability
 
