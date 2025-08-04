@@ -37,7 +37,7 @@ def test_indicators():
     # Save updated indicators
     output_file = 'output/indicators.csv'
     indicators_df.to_csv(output_file)
-    print(f"\n[OK] Updated indicators saved to: {output_file}")
+    print(f"\n Updated indicators saved to: {output_file}")
     
     return indicators_df
 

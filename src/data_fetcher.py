@@ -40,7 +40,7 @@ class DataFetcher:
         }
         
         # Alternative Yahoo tickers if primary fails
-        # Prioritized by likelihood of availability
+        # VIX ETFs provide better proxy than simple MA
         self.yahoo_alternatives = {
             'VIX1M': ['VIXY', 'VXX', 'UVXY', '^VIX3M', '^VIX30D'],  # Most likely to work first
         }
@@ -200,18 +200,60 @@ class DataFetcher:
                         df.columns = [str(col).title() for col in df.columns]
                         
                         if 'Close' in df.columns:
-                            result_df = pd.DataFrame({
-                                f'{ticker_name} Close': df['Close']
-                            }, index=df.index)
-                            print(f"   Success with {alt_symbol}")
-                            return result_df
-                    else:
-                        print(" Error")
+                            # NEW CODE: Special handling for VIX ETFs
+                            if alt_symbol in ['VIXY', 'VXX', 'UVXY']:
+                                # These ETFs track VIX futures, not spot VIX
+                                # Convert ETF price changes to VIX-like levels
+                                
+                                # Get VIX data for scaling
+                                vix_df = self._fetch_yahoo_data('VIX', start_date, end_date)
+                                if vix_df is not None and not vix_df.empty:
+                                    vix_values = vix_df['VIX Close'] if 'VIX Close' in vix_df.columns else vix_df.iloc[:, 0]
+                                    
+                                    # Calculate daily returns of the ETF
+                                    etf_returns = df['Close'].pct_change()
+                                    
+                                    # Use VIX as base and apply ETF returns to simulate VIX1M
+                                    # This preserves the level while following futures dynamics
+                                    vix1m_proxy = vix_values.iloc[0]  # Start from first VIX value
+                                    vix1m_values = [vix1m_proxy]
+                                    
+                                    for i in range(1, len(etf_returns)):
+                                        if pd.notna(etf_returns.iloc[i]):
+                                            # Apply ETF return but dampen it (futures are less volatile)
+                                            dampening = 0.8 if alt_symbol == 'UVXY' else 1.0  # UVXY is leveraged
+                                            vix1m_proxy *= (1 + etf_returns.iloc[i] * dampening)
+                                        vix1m_values.append(vix1m_proxy)
+                                    
+                                    # Align with VIX term structure (VIX1M usually slightly higher)
+                                    vix1m_series = pd.Series(vix1m_values, index=df.index)
+                                    
+                                    # Ensure reasonable spread vs VIX (typically 0-10% premium)
+                                    vix_aligned = vix_values.reindex(vix1m_series.index)
+                                    spread = (vix1m_series / vix_aligned - 1).rolling(20).mean()
+                                    spread_clipped = spread.clip(-0.05, 0.10)  # Limit to reasonable range
+                                    vix1m_final = vix_aligned * (1 + spread_clipped)
+                                    
+                                    result_df = pd.DataFrame({
+                                        f'{ticker_name} Close': vix1m_final
+                                    }, index=df.index)
+                                    
+                                    print(f"   Success with {alt_symbol} (VIX ETF proxy)")
+                                    return result_df
+                            else:
+                                # Original code for non-ETF alternatives
+                                result_df = pd.DataFrame({
+                                    f'{ticker_name} Close': df['Close']
+                                }, index=df.index)
+                                print(f"   Success with {alt_symbol}")
+                                return result_df
+                        else:
+                            print(" Error")
                 except Exception as e:
                     print(f"  ({str(e)[:30]}...)")
                     continue
-            
-            # If no alternatives work, calculate proxy
+        
+            # If no alternatives work, calculate simple proxy
             if ticker_name == 'VIX1M':
                 print(f"  All alternatives failed, calculating VIX1M proxy from VIX...")
                 return self._calculate_vix1m_proxy(start_date, end_date)
@@ -249,9 +291,9 @@ class DataFetcher:
                     print(f"    No close column found in VIX data: {list(vix_df.columns)}")
                     return None
                 
-                # Calculate proxy: 20-day MA with 1% premium
-                # For initial days with less than 20 days, use available data
-                vix1m_proxy = vix_values.rolling(window=20, min_periods=1).mean() * 1.01
+                # Calculate proxy: 22-day MA
+                # For initial days with less than 22 days, use available data
+                vix1m_proxy = vix_values.rolling(window=22, min_periods=1).mean()
                 
                 result_df = pd.DataFrame({
                     'VIX1M Close': vix1m_proxy
