@@ -23,7 +23,7 @@ All data fetched from free public sources with robust fallback mechanisms:
 | SPY | Yahoo Finance (SPY) | - | S&P 500 ETF (OHLCV data) |
 | SKEW | Yahoo Finance (^SKEW) | CBOE API | CBOE Skew Index |
 | VIX9D | Yahoo Finance (^VIX9D) | CBOE API | 9-day VIX |
-| VIX1M | Yahoo Finance (^VIX1M) | VIXY/VXX ETFs → 22-day MA proxy | 30-day VIX |
+| VIX1M | Yahoo Finance (^VIX1M) | VIXY/VXX ETFs -> 22-day MA proxy | 30-day VIX |
 
 Note: VIX1M proxy uses 22-day moving average (typical trading month) when direct data unavailable.
 
@@ -98,7 +98,7 @@ NDL_RegimeClassifier/
 
 ### Data Fetching
 - Multi-source fetching with automatic fallbacks
-- Yahoo Finance → CBOE → ETF proxies → MA calculation
+- Yahoo Finance -> CBOE -> ETF proxies -> MA calculation
 - VIX1M intelligent proxy (ETFs preferred over simple MA)
 - Efficient caching system (24-hour refresh)
 - Handles missing data gracefully
