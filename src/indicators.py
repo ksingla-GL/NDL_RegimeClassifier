@@ -107,6 +107,8 @@ class TechnicalIndicators:
         df['SPY_EMA50_above_EMA200'] = (df['SPY_EMA50'] > df['SPY_EMA200']).astype(int)
         df['SPY_EMA5_above_EMA20'] = (df['SPY_EMA5'] > df['SPY_EMA20']).astype(int)
         
+        df['SPY_EMA5_below_EMA20_days'] = self._count_consecutive(df['SPY_EMA5_above_EMA20'] == 0)
+        
         # 3. EMA Slopes
         for period in [50, 200]:
             ema_col = f'SPY_EMA{period}'
@@ -145,6 +147,8 @@ class TechnicalIndicators:
         df['SPY_MACD_signal'] = signal_line
         df['SPY_MACD_histogram'] = histogram
         df['SPY_MACD_histogram_positive'] = (histogram > 0).astype(int)
+        df['SPY_MACD_hist_declining_3d'] = ((df['SPY_MACD_histogram'] < df['SPY_MACD_histogram'].shift(1)).
+                                            astype(int).rolling(3).sum() >= 3).astype(int)
         
         # 7. Bollinger Bands
         sma20 = close.rolling(window=20).mean()
